@@ -3,14 +3,23 @@ import { describe, expect, it } from "vite-plus/test";
 import type { SessionEvent } from "@deepseek-ai/dsh-session";
 
 import {
+  POTETO_MODE_RECORD,
   potetoProjectionDefinition,
   type PotetoProjectionState,
 } from "../src/poteto/projection.ts";
 
 /** One recorded poteto selection event; `apply` reads only `type` and `data`. */
 function modeEvent(enabled: boolean): SessionEvent {
-  return { type: "poteto/mode", data: { enabled } } as SessionEvent;
+  return { type: "poteto/mode", data: { enabled } } as unknown as SessionEvent;
 }
+
+/** One persisted plugin record; `apply` reads only `type`, `data`, and `ignorable`. */
+function record(data: unknown, ignorable = true): SessionEvent {
+  return { type: POTETO_MODE_RECORD, data, ignorable } as unknown as SessionEvent;
+}
+
+const apply = (state: PotetoProjectionState, event: SessionEvent): PotetoProjectionState =>
+  potetoProjectionDefinition.apply(state, event);
 
 describe("poteto projection client view", () => {
   it("declares a wire view so the browser reads the switch state synchronously", () => {
@@ -39,9 +48,28 @@ describe("poteto projection client view", () => {
     const wire = potetoProjectionDefinition.wire;
     if (wire === undefined) throw new Error("poteto projection has no wire view");
 
-    const on = potetoProjectionDefinition.apply({}, modeEvent(true));
+    const on = potetoProjectionDefinition.apply({}, record({ enabled: true }));
     expect(wire.view(on)).toEqual({ enabled: true });
-    const off = potetoProjectionDefinition.apply(on, modeEvent(false));
+    const off = potetoProjectionDefinition.apply(on, record({ enabled: false }));
     expect(wire.view(off)).toEqual({ enabled: false });
+  });
+});
+
+describe("poteto projection record channel", () => {
+  it("folds a plugin record into the switch state", () => {
+    expect(apply({}, record({ enabled: true }))).toEqual({ enabled: true });
+    expect(apply({ enabled: true }, record({ enabled: false }))).toEqual({ enabled: false });
+  });
+
+  it("ignores the event type a downstream plugin cannot register", () => {
+    expect(apply({}, modeEvent(true))).toEqual({});
+  });
+
+  it("ignores a record the log did not mark optional", () => {
+    expect(apply({}, record({ enabled: true }, false))).toEqual({});
+  });
+
+  it("ignores a record whose data does not parse", () => {
+    expect(apply({}, record({ enabled: "yes" }))).toEqual({});
   });
 });

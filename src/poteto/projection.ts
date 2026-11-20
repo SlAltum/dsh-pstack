@@ -2,11 +2,15 @@
 
 import { z } from "zod";
 import type { ProjectionDefinition } from "@deepseek-ai/dsh-session-projection";
-import type { SessionEvent, SessionEventMap } from "@deepseek-ai/dsh-session";
+import { pluginRecordOf } from "@deepseek-ai/dsh-session";
+import type { PluginRecordMap, SessionEvent } from "@deepseek-ai/dsh-session";
+
+/** Plugin record type carrying one Session's poteto selection. */
+export const POTETO_MODE_RECORD = "plugin:pstack/poteto-mode";
 
 declare module "@deepseek-ai/dsh-session" {
-  interface SessionEventMap {
-    "poteto/mode": { enabled: boolean };
+  interface PluginRecordMap {
+    "plugin:pstack/poteto-mode": { enabled: boolean };
   }
 }
 
@@ -30,7 +34,7 @@ const stateSchema = z
   .object({ enabled: z.boolean().optional() })
   .strict() as z.ZodType<PotetoProjectionState>;
 const eventSchema = z.object({ enabled: z.boolean() }).strict() as z.ZodType<
-  SessionEventMap["poteto/mode"]
+  PluginRecordMap[typeof POTETO_MODE_RECORD]
 >;
 const viewSchema = z.object({ enabled: z.boolean() }).strict() as z.ZodType<PotetoModeView>;
 
@@ -44,8 +48,12 @@ export const potetoProjectionDefinition = {
   stateVersion: 1,
   stateSchema,
   init: () => ({}),
-  apply: (state: PotetoProjectionState, event: SessionEvent) =>
-    event.type === "poteto/mode" ? { ...state, ...eventSchema.parse(event.data) } : state,
+  apply: (state: PotetoProjectionState, event: SessionEvent) => {
+    const record = pluginRecordOf(event);
+    if (record?.type !== POTETO_MODE_RECORD) return state;
+    const parsed = eventSchema.safeParse(record.data);
+    return parsed.success ? { ...state, ...parsed.data } : state;
+  },
   wire: {
     viewSchema,
     view: (state: PotetoProjectionState) => (state.enabled === true ? ENABLED_VIEW : DISABLED_VIEW),

@@ -6,6 +6,7 @@ import type { Agent } from "@deepseek-ai/dsh-agent";
 import type {} from "@deepseek-ai/dsh-agent-team";
 import type { AgentPresetRegistry } from "@deepseek-ai/dsh-agent-preset-registry";
 import type { ConfigEditor } from "@deepseek-ai/dsh-config-editor";
+import { appendPluginRecord } from "@deepseek-ai/dsh-session";
 import type { SessionId } from "@deepseek-ai/dsh-session";
 import { createUserMessage } from "@deepseek-ai/dsh-llm";
 import type {} from "@deepseek-ai/dsh-agent-instructions";
@@ -21,7 +22,11 @@ import {
   resolvePotetoEnabled,
   shouldSeedPotetoDefault,
 } from "./poteto/preset-gate.ts";
-import { potetoProjectionDefinition, type PotetoProjectionState } from "./poteto/projection.ts";
+import {
+  POTETO_MODE_RECORD,
+  potetoProjectionDefinition,
+  type PotetoProjectionState,
+} from "./poteto/projection.ts";
 import { POTETO_SERVICE } from "./poteto/remote.ts";
 import { readSettings, writeSettings } from "./poteto/settings.ts";
 
@@ -211,7 +216,7 @@ export class PotetoModeService extends TypertRemoteService {
       throw new Error(`the poteto workflow is not available for the "${preset}" agent preset`);
     }
     if (this.isEnabledFor(agent) !== enabled) {
-      agent.session.append("poteto/mode", { enabled });
+      appendPluginRecord(agent.session, POTETO_MODE_RECORD, { enabled });
       if (!(await this.ctx.sessions.flush(agent.session))) {
         throw new Error(`poteto mode for session ${sessionId} was not persisted`);
       }
@@ -236,7 +241,7 @@ export class PotetoModeService extends TypertRemoteService {
     });
     if (!seed) return;
     this.seededDefaults.add(agent);
-    agent.session.append("poteto/mode", { enabled: true });
+    appendPluginRecord(agent.session, POTETO_MODE_RECORD, { enabled: true });
     if (!(await this.ctx.sessions.flush(agent.session))) {
       this.seededDefaults.delete(agent);
       throw new Error(`poteto default for session ${agent.session.id} was not persisted`);
