@@ -45,7 +45,7 @@ const DISABLED_VIEW: PotetoModeView = { enabled: false };
 /** Persisted selection for one root Session. */
 export const potetoProjectionDefinition = {
   key: "potetoMode",
-  stateVersion: 1,
+  stateVersion: 2,
   stateSchema,
   init: () => ({}),
   apply: (state: PotetoProjectionState, event: SessionEvent) => {
